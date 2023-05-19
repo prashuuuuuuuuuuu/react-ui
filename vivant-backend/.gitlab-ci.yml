@@ -1,0 +1,127 @@
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+stages:          # List of stages for jobs, and their order of execution
+  - install
+  - sonarscan
+  - upload
+  - uploadtopkg
+  - deploytoserver
+
+cache:
+  paths:
+    - node_modules/
+
+npm-install:
+  tags:
+    - viv-backend-linux
+  stage: install
+  script:
+    - npm install
+    - ls
+  artifacts:
+    paths:
+      - node_modules/*
+
+    
+variables:
+  SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+  GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+sonarcloud-check:
+  tags:
+    - viv-backend-linux
+  stage: sonarscan
+  image:
+    name: sonarsource/sonar-scanner-cli:4.6
+    entrypoint: [""]
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - /opt/sonar-scanner/bin/sonar-scanner 
+
+
+packagepush:
+  tags:
+    - viv-backend-linux
+  stage: upload
+  rules:
+    - if: $CI_PIPELINE_SOURCE != 'merge_request_event'
+  script:
+    - ls
+    - /usr/bin/zip -r vivant-api-final.zip ./*
+  artifacts:
+    paths:
+      - vivant-api-final.zip
+
+packagepushtoArtifactRepo:
+  tags:
+    - viv-backend-linux
+  stage: uploadtopkg
+  rules:
+    - if: $CI_PIPELINE_SOURCE != 'merge_request_event'
+  script:
+    - ls
+    - VERSION=`jq -r .version ./package.json`
+    - echo $VERSION
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./vivant-api-final.zip "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/vivant-api/${VERSION}/vivant-api-final.zip"'
+  artifacts:
+    paths:
+      - vivant-api-final.zip
+
+deploytodev:
+  tags:
+    - viv-backend-linux
+  stage: deploytoserver
+  rules:
+    - if: $CI_PIPELINE_SOURCE != 'merge_request_event'
+  before_script:
+  - 'command -v ssh-agent >/dev/null || ( apk add --update openssh )' 
+  - eval $(ssh-agent -s)
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - ssh-keyscan 10.0.0.231 >> ~/.ssh/known_hosts
+  - ssh-keyscan 10.0.0.207 >> ~/.ssh/known_hosts
+  - chmod 644 ~/.ssh/known_hosts
+  environment:
+    name: poc-api
+  script:
+    - ls
+    - mkdir -p server1 server2
+    - ls -l
+    - unzip vivant-api-final.zip -d server1
+    - unzip vivant-api-final.zip -d server2
+    - cd server1/config
+    - cat db.mysql.js
+    - export DB_HOST1=$DB_HOSTA_1
+    - export DB_HOST2=$DB_HOSTA_2
+    - envsubst '\$DB_HOST1,\$DB_HOST2,\$DB_USER,\$DB_PASSWORD,\$DB_NAME'< db.mysql.js >db.mysql_upd.js
+    - cat db.mysql_upd.js
+    - mv -f db.mysql_upd.js db.mysql.js
+    - cat db.mysql.js
+    - pwd && ls -l
+    - cd ../../server2/config
+    - cat db.mysql.js
+    - export DB_HOST1=$DB_HOSTB_1
+    - export DB_HOST2=$DB_HOSTB_2
+    - envsubst '\$DB_HOST1,\$DB_HOST2,\$DB_USER,\$DB_PASSWORD,\$DB_NAME'< db.mysql.js >db.mysql_upd.js
+    - cat db.mysql_upd.js
+    - mv -f db.mysql_upd.js db.mysql.js
+    - cat db.mysql.js
+    - cd ../../server1
+    - zip -r vivant-api-final-207.zip ./*
+    - cd ../server2
+    - zip -r vivant-api-final-231.zip ./*
+    - scp -o StrictHostKeyChecking=no ./vivant-api-final-231.zip ubuntu@10.0.0.231:/home/ubuntu
+    - ssh -o StrictHostKeyChecking=no ubuntu@10.0.0.231 "hostname && sudo ls -l /opt/backendapp && sudo unzip -o /home/ubuntu/vivant-api-final-231.zip -d /opt/backendapp && sudo ls -l /opt/backendapp && cd /opt/backendapp && sudo pm2 kill && sudo pm2 start server.js && exit"
+    - cd ../server1
+    - scp -o StrictHostKeyChecking=no ./vivant-api-final-207.zip ubuntu@10.0.0.207:/home/ubuntu
+    - ssh -o StrictHostKeyChecking=no ubuntu@10.0.0.207 "hostname && sudo ls -l /opt/backendapp && sudo unzip -o /home/ubuntu/vivant-api-final-207.zip -d /opt/backendapp && sudo ls -l /opt/backendapp && cd /opt/backendapp && sudo pm2 kill && sudo pm2 start server.js && exit"
+  artifacts:
+    paths:
+      - vivant-api-final.zip
