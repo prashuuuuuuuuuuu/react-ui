@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
+  "publishConfig": {
+    "registry": "http://52.197.169.106:8081/repository/nodeproject/"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "local": "nodemon server.js"
