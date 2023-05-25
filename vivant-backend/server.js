@@ -2,9 +2,10 @@ global.root = __dirname;
 const server = require("./express")();
 const { port } = require("./config");
 const PORT = process.env.PORT || port;
-const { query } = require("./config/db.mysql");
+const { query,connect } = require("./config/db.mysql");
 
 server.listen(PORT, async () => {
+        connect();
   global.poolQuery = query;
   console.log("server is runnung:", PORT);
 });
