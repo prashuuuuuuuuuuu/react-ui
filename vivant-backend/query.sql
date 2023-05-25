@@ -1,4 +1,6 @@
-CREATE TABLE users (
+ CREATE DATABASE motivity;
+ USE motivity;
+  CREATE TABLE users (
   `user_id` INT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(100) NOT NULL,
   `email` VARCHAR(100) NOT NULL,
@@ -36,3 +38,13 @@ CREATE TABLE users (
 `qunatity` INT NOT null,
  PRIMARY KEY (`cart_id`)
    );
+   
+ insert into users (name,email,password) values
+('Ashok Reddy','test@gmail.com','$2b$10$IMjU1iTS8NJalyDVENC2f.5/OesEafKWII5qWsK3AZWeYGvcMw1HS');
+   
+ CREATE USER 'test_user'@'%' IDENTIFIED BY 'Test_123';
+ GRANT ALL PRIVILEGES ON *.* TO 'test_user'@'%';
+ ALTER USER 'test_user'@'%' IDENTIFIED WITH mysql_native_password BY 'Test_123'
+ 
+ 
+ 
