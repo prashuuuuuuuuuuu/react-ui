@@ -1,6 +1,6 @@
 {
     "/api": {
-      "target": "service_1:5005",
+      "target": "service-1:5005",
       "secure": false
     }
   }
