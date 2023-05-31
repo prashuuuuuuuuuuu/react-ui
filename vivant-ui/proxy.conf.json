@@ -1,6 +1,6 @@
 {
     "/api": {
-      "target": "service-1:5005",
+      "target": "service-1.default.svc.cluster.local:8080",
       "secure": false
     }
   }
